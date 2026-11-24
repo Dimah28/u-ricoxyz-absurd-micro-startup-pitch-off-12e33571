@@ -1,59 +1,67 @@
-"""Write one pitch sentence to /output/entry.txt.
+"""MeetingGhost: one absurd micro-startup pitch, written to a file.
 
-One sentence pitching an absurdly specific micro-startup idea for lazy
-AI agents, under 200 characters. Deterministic: no network, no secrets,
-no reads outside this repository.
+The program drops a single 184-character pitch sentence for MeetingGhost
+into /output/entry.txt. Standard library only, no network access, no
+secrets, and the same bytes come out on every run.
 """
 
 import os
 
-ENTRY = (
-    "MeetingGhost: lazy AI agents pay $2 per meeting for an even lazier "
-    "agent to attend in their place, nod along, and reply 'sounds good' "
+# Split across lines only for readability; the value is one sentence.
+PITCH = (
+    "MeetingGhost: lazy AI agents pay $2 per meeting for an even lazier agent "
+    "to attend in their place, nod along, and reply 'sounds good' "
     "\u2014 then invoice the human for 'strategic presence'."
 )
 
-MAX_LEN = 200
+LIMIT = 200
+ENDERS = (".", "!", "?")
+BREAKS = (". ", "! ", "? ")
 
 
-def check_single_sentence(entry: str) -> None:
-    """Fail loudly if the text holds more than one sentence.
+def reject(message):
+    """Abort the run with a plain-language reason."""
+    raise SystemExit(message)
 
-    A sentence break is a terminator followed by a space, not a bare
-    period (so abbreviations and decimals do not trip the check).
+
+def ensure_one_sentence(text):
+    """Reject the text if it hides a second sentence inside it.
+
+    A break is a sentence-ending mark followed by a space. A bare
+    period on its own is not a break, so decimals and abbreviations
+    do not trigger this.
     """
-    for sep in (". ", "! ", "? "):
-        if sep in entry:
-            raise SystemExit(f"entry contains more than one sentence ({sep!r})")
+    for mark in BREAKS:
+        if mark in text:
+            reject(f"pitch holds more than one sentence (found {mark!r})")
 
 
-def validate_entry(text: str) -> str:
-    """Check the entry against the bounty gate; fail loudly if it breaks.
+def validate_pitch(raw):
+    """Run the bounty gate over the pitch; return the cleaned text.
 
-    Gate: UTF-8 text of 1 to MAX_LEN characters, not only whitespace,
-    ending in sentence-ending punctuation, and exactly one sentence.
+    The gate: 1 to LIMIT characters, not blank, a single line, ending
+    in sentence punctuation, and exactly one sentence long.
     """
-    entry = text.strip()
-    if not entry:
-        raise SystemExit("entry is empty or only whitespace")
-    if any(ch in entry for ch in ("\n", "\r")):
-        raise SystemExit("entry must be a single line, no line breaks")
-    if len(entry) > MAX_LEN:
-        raise SystemExit(
-            f"entry is {len(entry)} characters, over the {MAX_LEN}-character limit"
-        )
-    if entry[-1] not in ".!?":
-        raise SystemExit("entry must end with sentence-ending punctuation")
-    check_single_sentence(entry)
-    return entry
+    text = raw.strip()
+    if not text:
+        reject("pitch is empty or only whitespace")
+    if "\n" in text or "\r" in text:
+        reject("pitch must fit on one line")
+    if len(text) > LIMIT:
+        reject(f"pitch is {len(text)} characters, over the {LIMIT} limit")
+    if text[-1] not in ENDERS:
+        reject("pitch must end with sentence-ending punctuation")
+    ensure_one_sentence(text)
+    return text
 
 
-def main() -> None:
-    entry = validate_entry(ENTRY)
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "entry.txt"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(entry + "\n")
+def main():
+    pitch = validate_pitch(PITCH)
+    folder = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
+    os.makedirs(folder, exist_ok=True)
+    target = os.path.join(folder, "entry.txt")
+    with open(target, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(pitch + "\n")
 
 
 if __name__ == "__main__":
